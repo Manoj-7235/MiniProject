@@ -227,6 +227,13 @@ def profile():
     orders = Order.get_user_orders(current_user.id)
     return render_template('auth/profile.html', user=current_user, orders=orders)
 
+# Cart API Route
+@app.route('/api/cart/count')
+@login_required
+def cart_count():
+    cart_items = Cart.get_user_cart(current_user.id)
+    return jsonify({'count': len(cart_items)})
+
 # Shopping Cart Routes
 @app.route('/cart')
 @login_required
