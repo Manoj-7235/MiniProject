@@ -730,5 +730,117 @@ def gaming_info():
 
 
 
+# Admin Routes
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('home'))
+
+    # Get statistics
+    total_users = len(db.fetch_all("SELECT id FROM users"))
+    total_orders = len(db.fetch_all("SELECT id FROM orders"))
+    total_products = len(db.fetch_all("SELECT id FROM products"))
+    total_revenue = db.fetch_one("SELECT SUM(total_amount) FROM orders")[0] or 0
+
+    # Get recent orders
+    recent_orders = db.fetch_all('''
+        SELECT o.id, o.order_number, o.total_amount, o.status, o.created_at, u.email
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        ORDER BY o.created_at DESC
+        LIMIT 10
+    ''')
+
+    stats = {
+        'total_users': total_users,
+        'total_orders': total_orders,
+        'total_products': total_products,
+        'total_revenue': total_revenue,
+        'recent_orders': recent_orders
+    }
+
+    return render_template('admin/admin_dashboard.html', stats=stats)
+
+@app.route('/admin/products')
+@login_required
+def manage_products():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('home'))
+
+    products = db.fetch_all('''
+        SELECT id, brand, product_name, price, ram_size, storage_capacity, screen_size
+        FROM products
+        ORDER BY brand, product_name
+    ''')
+
+    return render_template('admin/manage_products.html', products=products)
+
+@app.route('/admin/orders')
+@login_required
+def manage_orders():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('home'))
+
+    orders = db.fetch_all('''
+        SELECT o.id, o.order_number, o.total_amount, o.status, o.shipping_address,
+               o.payment_method, o.payment_status, o.created_at, u.email, u.first_name, u.last_name
+        FROM orders o
+        JOIN users u ON o.user_id = u.id
+        ORDER BY o.created_at DESC
+    ''')
+
+    return render_template('admin/manage_orders.html', orders=orders)
+
+@app.route('/admin/users')
+@login_required
+def manage_users():
+    if not current_user.is_admin:
+        flash('Access denied. Admin privileges required.', 'danger')
+        return redirect(url_for('home'))
+
+    users = db.fetch_all('''
+        SELECT id, username, email, first_name, last_name, is_admin, created_at
+        FROM users
+        ORDER BY created_at DESC
+    ''')
+
+    return render_template('admin/manage_users.html', users=users)
+
+@app.route('/admin/orders/<int:order_id>/status', methods=['POST'])
+@login_required
+def update_order_status(order_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Access denied'}), 403
+
+    new_status = request.form.get('status')
+    if new_status in ['pending', 'processing', 'shipped', 'delivered', 'cancelled']:
+        Order.update_order_status(order_id, new_status)
+        flash('Order status updated successfully', 'success')
+    else:
+        flash('Invalid status', 'danger')
+
+    return redirect(url_for('manage_orders'))
+
+# Create default admin user if none exists
+def create_admin_user():
+    admin_users = db.fetch_all("SELECT id FROM users WHERE is_admin = 1")
+    if not admin_users:
+        admin_user = User.create_user(
+            username='admin',
+            email='admin@laptopshop.com',
+            password='admin123',
+            first_name='Admin',
+            last_name='User',
+            is_admin=True
+        )
+        print("Default admin user created: admin@laptopshop.com / admin123")
+
+# Create admin on startup
+create_admin_user()
+
 if __name__ == '__main__':
     app.run(debug=True)
