@@ -34,6 +34,67 @@
                     <li class="nav-item"><a class="nav-link text-dark fw-semibold" href="/antivirus">Antivirus</a></li>
                     <li class="nav-item"><a class="nav-link text-dark fw-semibold" href="/about">About Us</a></li>
                     <li class="nav-item"><a class="nav-link text-dark fw-semibold" href="/contact">Contact Us</a></li>
+
+                    <!-- Shopping Cart -->
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link text-dark fw-semibold position-relative" href="{{ url_for('cart') }}">
+                                <i class="bi bi-cart3"></i>
+                                Cart
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="cart-count">
+                                    0
+                                </span>
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link text-dark fw-semibold" href="/products" onclick="showLoginPrompt(); return false;">
+                                <i class="bi bi-cart3"></i>
+                                Cart
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <!-- User Account -->
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle text-dark fw-semibold" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-person-circle"></i>
+                                {{ current_user.get_full_name() }}
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ url_for('profile') }}">
+                                    <i class="bi bi-person"></i> My Profile
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('orders') }}">
+                                    <i class="bi bi-bag"></i> My Orders
+                                </a></li>
+                                {% if current_user.is_admin %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                                        <i class="bi bi-gear"></i> Admin Dashboard
+                                    </a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                                    <i class="bi bi-box-arrow-right"></i> Logout
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link text-dark fw-semibold" href="{{ url_for('login') }}">
+                                <i class="bi bi-box-arrow-in-right"></i>
+                                Login
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link btn btn-primary text-white px-3" href="{{ url_for('register') }}">
+                                <i class="bi bi-person-plus"></i>
+                                Register
+                            </a>
+                        </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
