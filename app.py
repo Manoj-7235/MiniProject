@@ -443,11 +443,51 @@ def products():
 
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
-    laptop = df[df['ID'] == product_id].to_dict('records')
-    if laptop:
-        return render_template('product_detail.html', laptop=laptop[0])
-    else:
+    # Get product from database
+    product = db.fetch_one("SELECT * FROM products WHERE id = ?", (product_id,))
+    if not product:
         return "Product not found", 404
+
+    # Convert to dict for template compatibility
+    laptop = {
+        'ID': product[0],
+        'Brand': product[1],
+        'Product': product[2],
+        'Price': product[3],
+        'RAM_Size': product[4],
+        'Storage_Capacity': product[5],
+        'Inches': product[6],
+        'Processor_Brand': product[7],
+        'Processor_Model': product[8],
+        'Weight': product[9],
+        'image_url': product[10],
+        'TypeName': product[11]
+    }
+
+    # Get product reviews
+    reviews = Review.get_product_reviews(product_id)
+    average_rating = Review.get_average_rating(product_id)
+    user_review = None
+    if current_user.is_authenticated:
+        user_review = Review.get_user_review(product_id, current_user.id)
+
+    # Create forms
+    add_to_cart_form = AddToCartForm()
+    add_to_cart_form.product_id.data = product_id
+    review_form = ReviewForm()
+
+    # Pre-fill review form if user has already reviewed
+    if user_review:
+        review_form.rating.data = user_review[0]
+        review_form.review_text.data = user_review[1]
+
+    return render_template('product_detail.html',
+                         laptop=laptop,
+                         reviews=reviews,
+                         average_rating=average_rating,
+                         user_review=user_review,
+                         add_to_cart_form=add_to_cart_form,
+                         review_form=review_form)
 
 
 @app.route('/about')
