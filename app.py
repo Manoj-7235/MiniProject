@@ -138,6 +138,215 @@ df = df.rename(columns={
     'CPU_company': 'Processor_Brand'
 })
 
+# Load laptop data into products table if not already loaded
+def load_laptops_to_database():
+    cursor = db.get_connection().cursor()
+    cursor.execute("SELECT COUNT(*) FROM products")
+    product_count = cursor.fetchone()[0]
+
+    if product_count == 0:
+        # Load products from CSV to database
+        for index, row in df.iterrows():
+            cursor.execute('''
+                INSERT OR REPLACE INTO products
+                (id, brand, product_name, price, ram_size, storage_capacity, screen_size,
+                 processor_brand, processor_model, weight, image_url, type_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                row['ID'], row['Brand'], row.get('Product', ''), row['Price'],
+                row.get('RAM_Size'), row.get('Storage_Capacity'), row.get('Inches'),
+                row.get('Processor_Brand', ''), row.get('Processor_Model', ''),
+                row.get('Weight'), row.get('image_url', ''), row.get('TypeName', '')
+            ))
+        db.get_connection().commit()
+
+# Load products on startup
+load_laptops_to_database()
+
+# Authentication Routes
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        # Check if username or email already exists
+        if User.get_by_username(form.username.data):
+            flash('Username already exists. Please choose a different one.', 'danger')
+        elif User.get_by_email(form.email.data):
+            flash('Email already registered. Please log in.', 'danger')
+        else:
+            user = User.create_user(
+                username=form.username.data,
+                email=form.email.data,
+                password=form.password.data,
+                first_name=form.first_name.data,
+                last_name=form.last_name.data,
+                phone=form.phone.data,
+                address=form.address.data,
+                city=form.city.data,
+                state=form.state.data,
+                postal_code=form.postal_code.data
+            )
+            flash('Registration successful! Please log in.', 'success')
+            return redirect(url_for('login'))
+
+    return render_template('auth/register.html', form=form)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.get_by_email(form.email.data)
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=form.remember_me.data)
+            flash(f'Welcome back, {user.get_full_name()}!', 'success')
+
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('home'))
+        else:
+            flash('Invalid email or password', 'danger')
+
+    return render_template('auth/login.html', form=form)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out successfully', 'info')
+    return redirect(url_for('home'))
+
+@app.route('/profile')
+@login_required
+def profile():
+    # Get user's orders
+    orders = Order.get_user_orders(current_user.id)
+    return render_template('auth/profile.html', user=current_user, orders=orders)
+
+# Shopping Cart Routes
+@app.route('/cart')
+@login_required
+def cart():
+    cart_items = Cart.get_user_cart(current_user.id)
+    total = sum(item[2] * item[4] for item in cart_items)  # quantity * price
+    return render_template('cart.html', cart_items=cart_items, total=total)
+
+@app.route('/cart/add', methods=['POST'])
+def add_to_cart():
+    product_id = request.form.get('product_id')
+    quantity = int(request.form.get('quantity', 1))
+
+    if current_user.is_authenticated:
+        Cart.add_item(current_user.id, product_id, quantity)
+        flash('Product added to cart!', 'success')
+    else:
+        # For guest users, store in session
+        if 'cart' not in session:
+            session['cart'] = {}
+        if product_id in session['cart']:
+            session['cart'][product_id] += quantity
+        else:
+            session['cart'][product_id] = quantity
+        flash('Product added to cart! Please log in to checkout', 'info')
+
+    return redirect(url_for('cart'))
+
+@app.route('/cart/update', methods=['POST'])
+@login_required
+def update_cart():
+    cart_id = request.form.get('cart_id')
+    quantity = int(request.form.get('quantity', 1))
+    Cart.update_quantity(cart_id, quantity)
+    return redirect(url_for('cart'))
+
+@app.route('/cart/remove', methods=['POST'])
+@login_required
+def remove_from_cart():
+    cart_id = request.form.get('cart_id')
+    Cart.remove_item(cart_id)
+    flash('Item removed from cart', 'info')
+    return redirect(url_for('cart'))
+
+# Checkout Routes
+@app.route('/checkout', methods=['GET', 'POST'])
+@login_required
+def checkout():
+    cart_items = Cart.get_user_cart(current_user.id)
+    if not cart_items:
+        flash('Your cart is empty', 'warning')
+        return redirect(url_for('cart'))
+
+    form = CheckoutForm()
+    if form.validate_on_submit():
+        # Prepare order items
+        items = []
+        for item in cart_items:
+            items.append({
+                'product_id': item[1],
+                'product_name': item[3] + ' ' + item[4],  # brand + product_name
+                'quantity': item[2],
+                'price': item[5]  # price
+            })
+
+        # Create order
+        order_id, order_number = Order.create_order(
+            current_user.id,
+            items,
+            form.shipping_address.data,
+            form.payment_method.data
+        )
+
+        if order_id:
+            flash(f'Order placed successfully! Order number: {order_number}', 'success')
+            return redirect(url_for('order_confirmation', order_id=order_id))
+        else:
+            flash('Failed to place order. Please try again.', 'danger')
+
+    # Pre-fill shipping address if available
+    if current_user.address:
+        form.shipping_address.data = f"{current_user.address}\n{current_user.city}, {current_user.state} {current_user.postal_code}"
+
+    total = sum(item[2] * item[5] for item in cart_items)  # quantity * price
+    return render_template('checkout.html', cart_items=cart_items, total=total, form=form)
+
+@app.route('/order/confirmation/<int:order_id>')
+@login_required
+def order_confirmation(order_id):
+    order = Order.get_user_orders(current_user.id)
+    order = next((o for o in order if o[0] == order_id), None)
+    if not order:
+        return "Order not found", 404
+
+    order_items = Order.get_order_items(order_id)
+    return render_template('order_confirmation.html', order=order, order_items=order_items)
+
+@app.route('/orders')
+@login_required
+def orders():
+    user_orders = Order.get_user_orders(current_user.id)
+    return render_template('orders.html', orders=user_orders)
+
+# Review Routes
+@app.route('/product/<int:product_id>/review', methods=['POST'])
+@login_required
+def add_review(product_id):
+    form = ReviewForm()
+    if form.validate_on_submit():
+        # Check if user has already reviewed
+        existing_review = Review.get_user_review(product_id, current_user.id)
+        if existing_review:
+            Review.update_review(product_id, current_user.id, form.rating.data, form.review_text.data)
+            flash('Review updated successfully!', 'success')
+        else:
+            Review.add_review(product_id, current_user.id, form.rating.data, form.review_text.data)
+            flash('Review added successfully!', 'success')
+
+    return redirect(url_for('product_detail', product_id=product_id))
+
 # 🧠 Chatbot knowledge base
 def get_chatbot_response(user_message):
     message = user_message.lower().strip()
