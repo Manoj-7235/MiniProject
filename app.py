@@ -81,8 +81,8 @@ def validate_urls_parallel(urls):
         results = executor.map(validate_image_url, urls)
         return list(results)
 
-# Load laptop data from data/laptop_dataset_with_images.csv
-CSV_PATH = os.path.join('data', 'laptop_dataset_with_images.csv')
+# Load laptop data from laptop_dataset_with_images.csv
+CSV_PATH = 'laptop_dataset_with_images.csv'
 df = pd.read_csv(CSV_PATH)
 
 # Clean and prepare data
