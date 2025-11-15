@@ -1,4 +1,8 @@
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, TextAreaField, IntegerField, FloatField, SelectField, BooleanField, HiddenField
+from wtforms.validators import DataRequired, Length, Email, EqualTo, NumberRange, Optional
 import pandas as pd
 import os
 import re
@@ -6,9 +10,55 @@ import requests
 from datetime import datetime
 from urllib.parse import urlparse
 import concurrent.futures
+from database import Database, User, Cart, Order, Review
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Required for flashing messages
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_message_category = 'info'
+
+# Initialize database
+db = Database()
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get_by_id(int(user_id))
+
+# Forms
+class RegistrationForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=4, max=80)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    first_name = StringField('First Name', validators=[Optional(), Length(max=100)])
+    last_name = StringField('Last Name', validators=[Optional(), Length(max=100)])
+    phone = StringField('Phone', validators=[Optional(), Length(max=20)])
+    address = TextAreaField('Address', validators=[Optional()])
+    city = StringField('City', validators=[Optional(), Length(max=100)])
+    state = StringField('State', validators=[Optional(), Length(max=100)])
+    postal_code = StringField('Postal Code', validators=[Optional(), Length(max=20)])
+
+class LoginForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[DataRequired()])
+    remember_me = BooleanField('Remember Me')
+
+class ReviewForm(FlaskForm):
+    rating = SelectField('Rating', choices=[(1, '1 Star'), (2, '2 Stars'), (3, '3 Stars'), (4, '4 Stars'), (5, '5 Stars')], coerce=int)
+    review_text = TextAreaField('Review', validators=[Optional(), Length(max=1000)])
+
+class AddToCartForm(FlaskForm):
+    product_id = HiddenField('Product ID')
+    quantity = IntegerField('Quantity', default=1, validators=[DataRequired(), NumberRange(min=1)])
+
+class CheckoutForm(FlaskForm):
+    shipping_address = TextAreaField('Shipping Address', validators=[DataRequired()])
+    payment_method = SelectField('Payment Method', choices=[('cod', 'Cash on Delivery'), ('card', 'Credit/Debit Card'), ('upi', 'UPI')], validators=[DataRequired()])
 
 def validate_image_url(url):
     """Validate if a URL points to a valid image"""
