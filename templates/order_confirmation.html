@@ -1,0 +1,320 @@
+{% extends "layout.html" %}
+
+{% block title %}Order Confirmation - LaptopShop{% endblock %}
+
+{% block styles %}
+<style>
+    .confirmation-container {
+        max-width: 1000px;
+        margin: 2rem auto;
+    }
+    .success-banner {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .success-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+    .order-details {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    .order-item {
+        padding: 1rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .order-item:last-child {
+        border-bottom: none;
+    }
+    .product-image {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
+    .action-buttons {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    .estimate-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container confirmation-container">
+    <!-- Success Banner -->
+    <div class="success-banner">
+        <div class="success-icon">
+            <i class="bi bi-check-circle-fill"></i>
+        </div>
+        <h1>Order Confirmed!</h1>
+        <p class="lead">Thank you for your purchase. Your order has been successfully placed.</p>
+        <div class="mt-3">
+            <h3>Order Number: <strong>{{ order[1] }}</strong></h3>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Order Details -->
+        <div class="col-md-8">
+            <div class="order-details">
+                <h4 class="mb-4">
+                    <i class="bi bi-receipt"></i>
+                    Order Details
+                </h4>
+
+                <!-- Order Information -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6>Order Information</h6>
+                        <p class="mb-1"><strong>Order Number:</strong> {{ order[1] }}</p>
+                        <p class="mb-1"><strong>Order Date:</strong> {{ order[7].strftime('%d %B %Y') }}</p>
+                        <p class="mb-1"><strong>Payment Method:</strong> {{ order[5]|title }}</p>
+                        <p class="mb-0"><strong>Payment Status:</strong>
+                            <span class="badge bg-warning">{{ order[6]|title }}</span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Shipping Address</h6>
+                        <p class="mb-0">{{ order[4]|nl2br }}</p>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Order Items -->
+                <h5 class="mb-3">Order Items</h5>
+                {% for item in order_items %}
+                    <div class="order-item">
+                        <div class="row align-items-center">
+                            <div class="col-md-2">
+                                <img src="https://via.placeholder.com/80x80?text=Product"
+                                     alt="{{ item[1] }}"
+                                     class="product-image">
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="mb-1">{{ item[1] }}</h6>
+                                <p class="text-muted mb-0">SKU: PRD-{{ "%04d"|format(item[0]) }}</p>
+                            </div>
+                            <div class="col-md-2 text-center">
+                                <p class="mb-0">Qty: {{ item[2] }}</p>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <h6 class="mb-0">₹{{ "{:,.2f}".format(item[2] * item[3]) }}</h6>
+                                <small class="text-muted">₹{{ "{:,.2f}".format(item[3]) }} each</small>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <hr>
+
+                <!-- Price Summary -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Price Breakdown</h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Subtotal:</span>
+                            <span>₹{{ "{:,.2f}".format(order[2] * 0.85) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Tax (18%):</span>
+                            <span>₹{{ "{:,.2f}".format(order[2] * 0.15) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Shipping:</span>
+                            <span class="text-success">FREE</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between">
+                            <h5>Total Amount:</h5>
+                            <h5>₹{{ "{:,.2f}".format(order[2]) }}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Side Panel -->
+        <div class="col-md-4">
+            <!-- Delivery Estimate -->
+            <div class="estimate-card mb-3">
+                <i class="bi bi-truck" style="font-size: 2rem;"></i>
+                <h5 class="mt-2">Estimated Delivery</h5>
+                <p class="mb-0">{{ (order[7] + timedelta(days=3)).strftime('%d %B %Y') }} - {{ (order[7] + timedelta(days=5)).strftime('%d %B %Y') }}</p>
+                <small>Standard Shipping (3-5 business days)</small>
+            </div>
+
+            <!-- Order Status -->
+            <div class="order-details mb-3">
+                <h5 class="mb-3">
+                    <i class="bi bi-info-circle"></i>
+                    Order Status
+                </h5>
+                <div class="text-center">
+                    <span class="badge bg-warning fs-6">{{ order[3]|title }}</span>
+                    <p class="mt-2 mb-0">Your order is being processed</p>
+                    <small class="text-muted">You'll receive email updates</small>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" onclick="trackOrder()">
+                        <i class="bi bi-truck"></i> Track Order
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="downloadInvoice()">
+                        <i class="bi bi-download"></i> Download Invoice
+                    </button>
+                    <a href="{{ url_for('orders') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-bag"></i> View All Orders
+                    </a>
+                    <a href="{{ url_for('products') }}" class="btn btn-success">
+                        <i class="bi bi-shopping-bag"></i> Continue Shopping
+                    </a>
+                </div>
+
+                <!-- Help Section -->
+                <hr class="my-3">
+                <div>
+                    <h6 class="mb-2">
+                        <i class="bi bi-headset"></i>
+                        Need Help?
+                    </h6>
+                    <div class="small">
+                        <div>📞 <strong>Phone:</strong> +91-1800-123-4567</div>
+                        <div>✉️ <strong>Email:</strong> support@laptopshop.com</div>
+                        <div>💬 <strong>Chat:</strong> Available 24/7</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Important Information -->
+            <div class="order-details mt-3">
+                <h6 class="mb-3">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Important Information
+                </h6>
+                <ul class="small mb-0">
+                    <li>You will receive order confirmation via email shortly</li>
+                    <li>Please keep your order number safe for future reference</li>
+                    <li>Check your email for tracking updates once shipped</li>
+                    <li>For any queries, contact our customer support</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="order-details mt-4">
+        <h4 class="mb-3">
+            <i class="bi bi-star"></i>
+            You May Also Like
+        </h4>
+        <p class="text-muted mb-3">Complete your setup with these recommended accessories</p>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card">
+                    <img src="https://via.placeholder.com/200x150?text=Laptop+Bag" class="card-img-top" alt="Laptop Bag">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Premium Laptop Bag</h6>
+                        <p class="card-text"><strong>₹1,299</strong></p>
+                        <button class="btn btn-outline-primary btn-sm">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <img src="https://via.placeholder.com/200x150?text=Mouse" class="card-img-top" alt="Wireless Mouse">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Wireless Mouse</h6>
+                        <p class="card-text"><strong>₹799</strong></p>
+                        <button class="btn btn-outline-primary btn-sm">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <img src="https://via.placeholder.com/200x150?text=Keyboard" class="card-img-top" alt="Keyboard">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Mechanical Keyboard</h6>
+                        <p class="card-text"><strong>₹2,499</strong></p>
+                        <button class="btn btn-outline-primary btn-sm">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card">
+                    <img src="https://via.placeholder.com/200x150?text=Antivirus" class="card-img-top" alt="Antivirus">
+                    <div class="card-body text-center">
+                        <h6 class="card-title">Antivirus Software</h6>
+                        <p class="card-text"><strong>₹799</strong></p>
+                        <button class="btn btn-outline-primary btn-sm">Add to Cart</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function trackOrder() {
+    // In a real implementation, this would open a tracking page or modal
+    alert('Order tracking functionality would show detailed tracking information');
+}
+
+function downloadInvoice() {
+    // In a real implementation, this would generate and download an invoice PDF
+    window.print();
+}
+
+// Auto-hide success message after 5 seconds
+setTimeout(function() {
+    const successBanner = document.querySelector('.success-banner');
+    if (successBanner) {
+        successBanner.style.transition = 'opacity 0.5s';
+        successBanner.style.opacity = '0.7';
+    }
+}, 5000);
+
+// Share order functionality
+function shareOrder() {
+    if (navigator.share) {
+        navigator.share({
+            title: 'Order Confirmation - LaptopShop',
+            text: `Check out my order {{ order[1] }} from LaptopShop!`,
+            url: window.location.href
+        });
+    } else {
+        // Fallback for browsers that don't support Web Share API
+        navigator.clipboard.writeText(window.location.href);
+        alert('Order link copied to clipboard!');
+    }
+}
+</script>
+
+<!-- Add nl2br filter for Jinja2 -->
+<script>
+// This is a workaround for the nl2br filter - in production, you'd use a proper Jinja2 filter
+</script>
+{% endblock %}
